@@ -1,0 +1,5 @@
+{
+  "name": "Aura 情绪头像生成器",
+  "description": "一款极简主义头像生成工具，可生成具有优雅排版和柔和光晕效果的头像，灵感源自参考图的美学风格。",
+  "requestFramePermissions": []
+}
