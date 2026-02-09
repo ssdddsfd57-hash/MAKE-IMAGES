@@ -1,21 +1,22 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { Download, Sparkles, Type, Move, Palette, MousePointer2, BarChart2, Activity } from 'lucide-react';
+import { Download, Sparkles, Type, Move, Palette, MousePointer2, CheckCircle2, History } from 'lucide-react';
 import { AvatarSettings, FontStyle, TextPosition, AppStats, TextTransform } from './types';
 import AvatarPreview from './components/AvatarPreview';
 import ColorWheel from './components/ColorWheel';
-import UsageStats from './components/UsageStats';
 import FontPicker from './components/FontPicker';
 
 const App: React.FC = () => {
   const [settings, setSettings] = useState<AvatarSettings>({
-    text: 'Untamed',
-    color: '#34c759',
+    text: 'Aura',
+    innerColor: '#34c759',
+    outerColor: '#5856d6',
+    backgroundColor: '#FFFFFF',
     fontSize: 110,
     fontStyle: FontStyle.WILD_METAL,
     position: TextPosition.CENTER,
-    intensity: 95,
-    auraSize: 85, // 默认光晕大小
+    intensity: 110,
+    auraSize: 85,
     textTransform: 'uppercase',
     letterSpacing: 2,
   });
@@ -26,7 +27,12 @@ const App: React.FC = () => {
     simulatedLiveUsers: Math.floor(Math.random() * 25) + 15
   });
 
-  const [isStatsOpen, setIsStatsOpen] = useState(false);
+  const [recentCreations, setRecentCreations] = useState<string[]>(() => {
+    const saved = localStorage.getItem('aura_recent_gallery');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [showSavedToast, setShowSavedToast] = useState(false);
   const [canvasRef, setCanvasRef] = useState<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -41,6 +47,10 @@ const App: React.FC = () => {
 
   const handleDownload = useCallback(() => {
     if (!canvasRef) return;
+    
+    const dataUrl = canvasRef.toDataURL('image/png');
+    
+    // 增加统计
     const newTotal = stats.localCreations + 1;
     localStorage.setItem('aura_total_creations', newTotal.toString());
     setStats(prev => ({
@@ -48,11 +58,22 @@ const App: React.FC = () => {
       localCreations: newTotal,
       sessionCreations: prev.sessionCreations + 1
     }));
+
+    // 保存到本地“最近作品”列表
+    const updatedGallery = [dataUrl, ...recentCreations].slice(0, 5);
+    setRecentCreations(updatedGallery);
+    localStorage.setItem('aura_recent_gallery', JSON.stringify(updatedGallery));
+
+    // 执行下载
     const link = document.createElement('a');
     link.download = `aura-art-${Date.now()}.png`;
-    link.href = canvasRef.toDataURL('image/png');
+    link.href = dataUrl;
     link.click();
-  }, [canvasRef, stats]);
+
+    // 显示成功反馈
+    setShowSavedToast(true);
+    setTimeout(() => setShowSavedToast(false), 3000);
+  }, [canvasRef, stats, recentCreations]);
 
   const updateSetting = <K extends keyof AvatarSettings>(key: K, value: AvatarSettings[K]) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -60,6 +81,12 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-8 bg-[#fafafa]">
+      {/* 成功保存提示 */}
+      <div className={`fixed top-8 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-6 py-4 bg-gray-900 text-white rounded-full shadow-2xl transition-all duration-500 ${showSavedToast ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-8 pointer-events-none'}`}>
+        <CheckCircle2 className="text-emerald-400" size={20} />
+        <span className="text-sm font-black uppercase tracking-widest">图像已成功保存至本地</span>
+      </div>
+
       <div className="mb-14 text-center relative">
         <div className="flex items-center justify-center gap-2 mb-4">
           <div className="flex items-center gap-2 px-5 py-2 bg-black text-white rounded-full text-[9px] font-black uppercase tracking-[0.2em] shadow-xl">
@@ -80,12 +107,38 @@ const App: React.FC = () => {
       <div className="w-full max-w-[1400px] grid grid-cols-1 lg:grid-cols-12 gap-12 items-start px-4">
         <div className="lg:col-span-4 space-y-10 bg-white p-12 rounded-[3.5rem] border border-gray-100 shadow-[0_30px_90px_rgba(0,0,0,0.04)]">
           
-          <section className="space-y-6">
-            <div className="flex items-center gap-3 text-gray-950 font-black uppercase text-xs tracking-widest">
-              <Palette size={20} className="text-indigo-600" />
-              <span>色彩层级</span>
+          <section className="space-y-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 text-gray-950 font-black uppercase text-xs tracking-widest">
+                <Palette size={20} className="text-indigo-600" />
+                <span>色彩层级</span>
+              </div>
+              <div className="flex gap-2 bg-gray-50 p-1.5 rounded-full border border-gray-100">
+                <button 
+                  onClick={() => updateSetting('backgroundColor', '#FFFFFF')}
+                  className={`w-6 h-6 rounded-full border-2 transition-all ${settings.backgroundColor === '#FFFFFF' ? 'border-indigo-500 scale-110 shadow-md' : 'border-white'}`}
+                  style={{ backgroundColor: '#FFFFFF' }}
+                  title="白色底色"
+                />
+                <button 
+                  onClick={() => updateSetting('backgroundColor', '#000000')}
+                  className={`w-6 h-6 rounded-full border-2 transition-all ${settings.backgroundColor === '#000000' ? 'border-indigo-500 scale-110 shadow-md' : 'border-black'}`}
+                  style={{ backgroundColor: '#000000' }}
+                  title="黑色底色"
+                />
+              </div>
             </div>
-            <ColorWheel color={settings.color} onChange={(c) => updateSetting('color', c)} />
+            
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start justify-items-center">
+              <div className="space-y-4 w-full">
+                <p className="text-[9px] text-center text-gray-400 font-black uppercase tracking-[0.2em]">内圈核心</p>
+                <ColorWheel color={settings.innerColor} onChange={(c) => updateSetting('innerColor', c)} />
+              </div>
+              <div className="space-y-4 w-full">
+                <p className="text-[9px] text-center text-gray-400 font-black uppercase tracking-[0.2em]">外圈光晕</p>
+                <ColorWheel color={settings.outerColor} onChange={(c) => updateSetting('outerColor', c)} />
+              </div>
+            </div>
           </section>
 
           <section className="space-y-8">
@@ -140,7 +193,7 @@ const App: React.FC = () => {
 
               <div className="flex flex-col gap-4">
                 <div className="flex justify-between text-[9px] text-gray-400 font-black uppercase tracking-[0.2em] px-1">
-                  <span>字间距 / 纵横比</span>
+                  <span>字间距</span>
                   <span className="text-indigo-600 font-mono">{settings.letterSpacing}px</span>
                 </div>
                 <input 
@@ -185,7 +238,7 @@ const App: React.FC = () => {
               
               <div className="flex flex-col gap-4">
                 <div className="flex justify-between text-[9px] text-gray-400 font-black uppercase tracking-[0.2em]">
-                  <span>光晕半径</span>
+                  <span>扩散规模</span>
                   <span className="text-indigo-600 font-mono">{settings.auraSize}%</span>
                 </div>
                 <input 
@@ -200,7 +253,7 @@ const App: React.FC = () => {
 
               <div className="flex flex-col gap-4">
                 <div className="flex justify-between text-[9px] text-gray-400 font-black uppercase tracking-[0.2em]">
-                  <span>光晕强度</span>
+                  <span>色彩浓度</span>
                   <span className="text-indigo-600 font-mono">{settings.intensity}%</span>
                 </div>
                 <input 
@@ -219,75 +272,98 @@ const App: React.FC = () => {
         <div className="lg:col-span-8 flex flex-col items-center gap-12 sticky top-8">
           <AvatarPreview settings={settings} onCanvasRef={setCanvasRef} />
           
-          <div className="flex flex-wrap justify-center gap-8">
-            <button 
-              onClick={handleDownload} 
-              className="group relative flex items-center gap-5 px-14 py-7 bg-gray-950 text-white rounded-[2.5rem] font-black shadow-[0_25px_50px_rgba(0,0,0,0.2)] hover:bg-black hover:-translate-y-2 transition-all active:scale-95 overflow-hidden"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/30 via-transparent to-purple-500/30 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              <Download size={28} className="group-hover:animate-bounce" />
-              <span className="text-xl tracking-widest text-white">导出艺术作品</span>
-            </button>
-            <button 
-              onClick={() => {
-                const colors = ['#000000', '#ff2d55', '#5856d6', '#34c759', '#ff9500', '#007aff', '#ff3b30', '#af52de', '#1d1d1f'];
-                const texts = ['EGO', 'RARE', 'VOID', 'PURE', 'CHAOS', 'GHOST', 'SILK', 'UNBORN', 'SOLO', 'RAW'];
-                const fonts = Object.values(FontStyle);
-                
-                const newFont = fonts[Math.floor(Math.random() * fonts.length)];
-                let newSpacing = 0;
-                let newSize = 80 + Math.random() * 120;
-                let newTransform: TextTransform = 'none';
+          <div className="flex flex-col items-center gap-12 w-full">
+            <div className="flex flex-wrap justify-center gap-8">
+              <button 
+                onClick={handleDownload} 
+                className="group relative flex items-center gap-5 px-14 py-7 bg-gray-950 text-white rounded-[2.5rem] font-black shadow-[0_25px_50px_rgba(0,0,0,0.2)] hover:bg-black hover:-translate-y-2 transition-all active:scale-95 overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/30 via-transparent to-purple-500/30 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <Download size={28} className="group-hover:animate-bounce" />
+                <span className="text-xl tracking-widest text-white">保存并导出图像</span>
+              </button>
+              <button 
+                onClick={() => {
+                  const colors = ['#000000', '#ff2d55', '#5856d6', '#34c759', '#ff9500', '#007aff', '#ff3b30', '#af52de', '#1d1d1f'];
+                  const bgs = ['#FFFFFF', '#000000'];
+                  const texts = ['EGO', 'RARE', 'VOID', 'PURE', 'CHAOS', 'GHOST', 'SILK', 'UNBORN', 'SOLO', 'RAW'];
+                  const fonts = Object.values(FontStyle);
+                  
+                  const newFont = fonts[Math.floor(Math.random() * fonts.length)];
+                  let newSpacing = 0;
+                  let newSize = 80 + Math.random() * 120;
+                  let newTransform: TextTransform = 'none';
 
-                if (newFont.includes('Bungee') || newFont.includes('Metal')) {
-                   newTransform = 'uppercase';
-                   newSpacing = -2 + Math.random() * 8;
-                   newSize = 120 + Math.random() * 60;
-                } else if (newFont.includes('Monsieur') || newFont.includes('Pinyon')) {
-                   newSpacing = 0;
-                   newSize = 70 + Math.random() * 50;
-                } else if (newFont.includes('Reenie') || newFont.includes('Hand')) {
-                   newSize = 60 + Math.random() * 40;
-                   newSpacing = 2 + Math.random() * 5;
-                }
+                  if (newFont.includes('Bungee') || newFont.includes('Metal')) {
+                    newTransform = 'uppercase';
+                    newSpacing = -2 + Math.random() * 8;
+                    newSize = 120 + Math.random() * 60;
+                  } else if (newFont.includes('Monsieur') || newFont.includes('Pinyon')) {
+                    newSpacing = 0;
+                    newSize = 70 + Math.random() * 50;
+                  } else if (newFont.includes('Reenie') || newFont.includes('Hand')) {
+                    newSize = 60 + Math.random() * 40;
+                    newSpacing = 2 + Math.random() * 5;
+                  }
 
-                setSettings(prev => ({
-                  ...prev,
-                  color: colors[Math.floor(Math.random() * colors.length)],
-                  text: texts[Math.floor(Math.random() * texts.length)],
-                  fontStyle: newFont,
-                  fontSize: Math.floor(newSize),
-                  letterSpacing: Number(newSpacing.toFixed(1)),
-                  textTransform: newTransform,
-                  intensity: 60 + Math.random() * 120,
-                  auraSize: 40 + Math.random() * 100,
-                  position: Math.random() > 0.5 ? TextPosition.CENTER : [TextPosition.BOTTOM_LEFT, TextPosition.TOP_RIGHT][Math.floor(Math.random()*2)]
-                }));
-              }}
-              className="flex items-center gap-5 px-14 py-7 bg-white text-gray-900 border-2 border-gray-50 rounded-[2.5rem] font-black shadow-2xl hover:bg-gray-50 hover:-translate-y-2 transition-all"
-            >
-              <MousePointer2 size={28} className="text-indigo-600" />
-              <span className="text-xl tracking-widest">灵感随机</span>
-            </button>
-          </div>
+                  setSettings(prev => ({
+                    ...prev,
+                    innerColor: colors[Math.floor(Math.random() * colors.length)],
+                    outerColor: colors[Math.floor(Math.random() * colors.length)],
+                    backgroundColor: bgs[Math.floor(Math.random() * bgs.length)],
+                    text: texts[Math.floor(Math.random() * texts.length)],
+                    fontStyle: newFont,
+                    fontSize: Math.floor(newSize),
+                    letterSpacing: Number(newSpacing.toFixed(1)),
+                    textTransform: newTransform,
+                    intensity: 60 + Math.random() * 120,
+                    auraSize: 40 + Math.random() * 100,
+                    position: Math.random() > 0.5 ? TextPosition.CENTER : [TextPosition.BOTTOM_LEFT, TextPosition.TOP_RIGHT][Math.floor(Math.random()*2)]
+                  }));
+                }}
+                className="flex items-center gap-5 px-14 py-7 bg-white text-gray-900 border-2 border-gray-50 rounded-[2.5rem] font-black shadow-2xl hover:bg-gray-50 hover:-translate-y-2 transition-all"
+              >
+                <MousePointer2 size={28} className="text-indigo-600" />
+                <span className="text-xl tracking-widest">灵感随机</span>
+              </button>
+            </div>
 
-          <div className="flex items-center gap-10 px-10 py-5 bg-white border border-gray-100 rounded-[2rem] shadow-sm">
-             <div className="flex items-center gap-3 text-base text-gray-500 font-black tracking-widest">
-               <Activity size={20} className="text-green-500" />
-               <span>本次会话: {stats.sessionCreations} 件杰作</span>
-             </div>
-             <div className="h-8 w-[2px] bg-gray-100"></div>
-             <button onClick={() => setIsStatsOpen(true)} className="flex items-center gap-3 text-base text-indigo-600 font-black hover:text-indigo-700 transition-all uppercase tracking-widest">
-               <BarChart2 size={22} />
-               统计分析
-             </button>
+            {/* 最近作品展示 */}
+            {recentCreations.length > 0 && (
+              <div className="w-full max-w-[500px] flex flex-col gap-6 p-8 bg-white/50 backdrop-blur-md rounded-[3rem] border border-gray-100">
+                <div className="flex items-center justify-between px-2">
+                  <div className="flex items-center gap-2 text-[9px] text-gray-400 font-black uppercase tracking-[0.2em]">
+                    <History size={14} className="text-indigo-400" />
+                    <span>最近作品 (已保存)</span>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setRecentCreations([]);
+                      localStorage.removeItem('aura_recent_gallery');
+                    }}
+                    className="text-[9px] text-gray-300 font-black uppercase hover:text-red-400 transition-colors"
+                  >
+                    清除
+                  </button>
+                </div>
+                <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+                  {recentCreations.map((img, idx) => (
+                    <div 
+                      key={idx} 
+                      className="flex-shrink-0 w-20 h-20 rounded-2xl border-2 border-white shadow-lg overflow-hidden group cursor-zoom-in transition-all hover:scale-110"
+                    >
+                      <img src={img} alt={`Recent ${idx}`} className="w-full h-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
       <footer className="mt-32 text-gray-300 text-[12px] font-black uppercase tracking-[0.6em]">
         Aura Master Studio • 艺术至上 • Est. 2024
       </footer>
-      {isStatsOpen && <UsageStats stats={stats} onClose={() => setIsStatsOpen(false)} />}
     </div>
   );
 };

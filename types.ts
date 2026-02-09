@@ -39,12 +39,14 @@ export type TextTransform = 'none' | 'uppercase' | 'lowercase' | 'capitalize';
 
 export interface AvatarSettings {
   text: string;
-  color: string;
+  innerColor: string; 
+  outerColor: string; 
+  backgroundColor: string; // 新增：底色 (黑色/白色)
   fontSize: number;
   fontStyle: FontStyle;
   position: TextPosition;
   intensity: number;
-  auraSize: number; // 新增：控制光晕大小
+  auraSize: number;
   textTransform: TextTransform;
   letterSpacing: number;
 }
