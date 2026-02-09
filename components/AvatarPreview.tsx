@@ -19,8 +19,8 @@ const AvatarPreview: React.FC<AvatarPreviewProps> = ({ settings, onCanvasRef }) 
     const size = canvas.width;
     const center = size / 2;
 
-    // Background
-    ctx.fillStyle = '#FFFFFF';
+    // Background - 使用用户选择的底色
+    ctx.fillStyle = settings.backgroundColor;
     ctx.fillRect(0, 0, size, size);
 
     const hexToRgb = (hex: string) => {
@@ -32,24 +32,28 @@ const AvatarPreview: React.FC<AvatarPreviewProps> = ({ settings, onCanvasRef }) 
       } : { r: 0, g: 0, b: 0 };
     };
 
-    const rgb = hexToRgb(settings.color);
-    const layers = 15;
-    // 使用 auraSize 计算基础半径 (30-100 映射到 size 的比例)
-    const baseRadius = size * (settings.auraSize / 200);
-    
-    // Draw more organic aura layers
-    for (let i = 0; i < layers; i++) {
-      const radius = baseRadius * (1 - (i * 0.035));
-      const opacity = (settings.intensity / 100) * (0.03 + (i * 0.015));
-      const grad = ctx.createRadialGradient(center, center, 0, center, center, radius * 1.8);
-      grad.addColorStop(0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity})`);
-      grad.addColorStop(0.7, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity * 0.2})`);
-      grad.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0)`);
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(center, center, radius * 1.8, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    const drawAura = (color: string, radiusMultiplier: number, opacityMultiplier: number, layerCount: number) => {
+      const rgb = hexToRgb(color);
+      const baseRadius = size * (settings.auraSize / 200) * radiusMultiplier;
+      
+      for (let i = 0; i < layerCount; i++) {
+        const radius = baseRadius * (1 - (i * (0.5 / layerCount)));
+        const opacity = (settings.intensity / 100) * (0.02 + (i * (0.04 / layerCount))) * opacityMultiplier;
+        const grad = ctx.createRadialGradient(center, center, 0, center, center, radius * 1.8);
+        grad.addColorStop(0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity})`);
+        grad.addColorStop(0.7, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity * 0.2})`);
+        grad.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0)`);
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(center, center, radius * 1.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    };
+
+    // 先画外圈 (更柔和，更大)
+    drawAura(settings.outerColor, 1.2, 0.7, 10);
+    // 再画内圈 (更亮，更小)
+    drawAura(settings.innerColor, 0.6, 1.2, 12);
 
     let displayText = settings.text;
     if (settings.textTransform === 'uppercase') displayText = displayText.toUpperCase();
@@ -58,9 +62,10 @@ const AvatarPreview: React.FC<AvatarPreviewProps> = ({ settings, onCanvasRef }) 
       displayText = displayText.split(' ').map(s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()).join(' ');
     }
 
+    // 文本颜色：如果是白色背景，增加一点阴影对比；如果是黑色背景，保持亮白
     ctx.fillStyle = 'rgba(255, 255, 255, 0.99)';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
-    ctx.shadowBlur = 8;
+    ctx.shadowColor = settings.backgroundColor === '#FFFFFF' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.4)';
+    ctx.shadowBlur = settings.backgroundColor === '#FFFFFF' ? 8 : 12;
     
     let fontStr = `${settings.fontSize}px `;
     switch(settings.fontStyle) {
@@ -138,10 +143,10 @@ const AvatarPreview: React.FC<AvatarPreviewProps> = ({ settings, onCanvasRef }) 
         ref={canvasRef}
         width={1024}
         height={1024}
-        className="w-full h-auto max-w-[440px] aspect-square rounded-[2rem] cursor-default"
+        className="w-full h-auto max-w-[440px] aspect-square rounded-[2rem] cursor-default transition-colors duration-500"
       />
-      <div className="mt-6 text-center text-[9px] text-gray-300 font-extrabold tracking-[0.4em] uppercase">
-        艺术工作室高清渲染 • 1024px
+      <div className="mt-6 text-center text-[9px] text-gray-400 font-extrabold tracking-[0.4em] uppercase">
+        艺术工作室双层渲染 • 1024px
       </div>
     </div>
   );
